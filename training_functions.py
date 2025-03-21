@@ -64,8 +64,6 @@ def create_random_input_data():
 
 def create_model():
     model = MobileNetWithSigmoid()
-    
-    nn.sigmoid = nn.Sigmoid()
     return model
 
 def train_model(epochs, loss_function, optimizer):

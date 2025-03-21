@@ -1,2 +1,2 @@
 # WellplateKI
-Wellplate KI Showcase test
+Wellplate KI Showcase

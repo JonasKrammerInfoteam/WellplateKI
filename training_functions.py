@@ -28,6 +28,23 @@ class WellDataSet(Dataset):
     
     def __getitem__(self, idx):
         return self.inputs[idx], self.targets[idx]
+    
+
+class MobileNetWithSigmoid(nn.Module):
+    def __init__(self, num_classes=1):  # Set num_classes as 1 for binary classification
+        super(MobileNetWithSigmoid, self).__init__()
+        # Load the pre-trained MobileNetV2 model
+        self.mobilenet = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.IMAGENET1K_V1)
+        num_classes = 96
+        self.mobilenet.classifier[3] = nn.Linear(self.mobilenet.classifier[3].in_features, num_classes)
+           
+        # Add sigmoid activation after the final fully connected layer
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, x):
+        x = self.mobilenet(x)
+        x = self.sigmoid(x)
+        return x
 
 def create_random_input_data():
     batch_size = 32
@@ -35,19 +52,20 @@ def create_random_input_data():
     channels = 3  
     height = 224    
     width = 224     
-    random_image = torch.randn(channels, height, width)
+    random_image = torch.rand(channels, height, width)
     image_tensor_example = random_image.unsqueeze(0).repeat(batch_size,1,1,1)
 
     height = 96   
+    #random_target = torch.randint(1,99, (height,))
     random_target = torch.rand(height)
     target_tensor_example = random_target.unsqueeze(0).repeat(batch_size,1)
 
     return image_tensor_example, target_tensor_example
 
 def create_model():
-    model = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.IMAGENET1K_V1)
-    num_classes = 96
-    model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
+    model = MobileNetWithSigmoid()
+    
+    nn.sigmoid = nn.Sigmoid()
     return model
 
 def train_model(epochs, loss_function, optimizer):
@@ -60,7 +78,7 @@ def train_model(epochs, loss_function, optimizer):
 
             outputs = model(input)
 
-            loss = loss_function(outputs.squeeze(), targets.float())
+            loss = loss_function(outputs.float(), targets.float())
 
             loss.backward()
 
@@ -82,7 +100,7 @@ dataloader = DataLoader(training_data_set, batch_size=32, shuffle=True)
 model = create_model()
 
 
-loss_function = nn.CrossEntropyLoss()
+loss_function = nn.BCELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

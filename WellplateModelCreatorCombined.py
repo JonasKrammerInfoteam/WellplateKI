@@ -6,6 +6,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms, models
 from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import _LRScheduler
+import torch.functional as F
 
 
 #640x480
@@ -27,15 +28,15 @@ class EmbeddingMod(nn.Module):
             self.Expand = torch.nn.ConvTranspose2d(3, 3, 3, 3, 0)
     
         def forward(self, x):
-            x = self.embed.forward(x)
-            x = self.Expand.forward(x)
-            return x
+            y = self.embed.forward(x)
+            y = self.Expand.forward(y)
+            return y[0:x.size(0),0:x.size(1),0:x.size(2)]
 
 def EmbeddedTraining():
 
     # Example RGB data (e.g., 100 samples, each with 3 RGB values)
     # Shape: [batch_size, channels, height, width]
-    rgb_values = torch.randint(0, 256, (100, 3, 1, 10), dtype=torch.float32)  # Random RGB values between 0 and 255
+    rgb_values = torch.randint(0, 256, (100, 3, 640, 480), dtype=torch.float32)  # Random RGB values between 0 and 255
 
     # Normalize the RGB values to the range [0, 1]
     normalized_rgb_values = rgb_values / 255.0  # Divide by 255 to normalize
@@ -44,7 +45,7 @@ def EmbeddedTraining():
 
 
     # Flatten input to shape [100, 30] (3 channels * 1 height * 10 width)
-    input_train = normalized_rgb_values.view(100, -1)  # Flatten RGB data
+    input_train = normalized_rgb_values#.view(100, -1)  # Flatten RGB data
 
     output_train = input_train
 
@@ -67,7 +68,7 @@ def EmbeddedTraining():
     criterion = nn.MSELoss()  # Mean Squared Error loss for regression
     optimizer = optim.Adam(embedding.parameters(), lr=0.001)
 
-    epochs = 100
+    epochs = 10
 
     # Training loop
     for epoch in range(epochs):
@@ -80,7 +81,7 @@ def EmbeddedTraining():
             # Explicitly calling model.forward
             outputs = embedding.forward(inputs)  # Forward pass using model.forward()
             
-            loss = criterion(outputs, targets)  # Calculate the loss
+            loss = criterion.forward(outputs, inputs)  # Calculate the loss
             loss.backward()  # Backpropagation
             optimizer.step()  # Update weights
             
@@ -104,7 +105,7 @@ def EmbeddedTraining():
     print(input_train)  # Print the input RGB features tensor
     print("\noutput_train Tensor:")
     print(output_train)  # Print the target tensor
-    return input_train, output_train
+    return embedding.embed
 
 class WarmUpLR(_LRScheduler):
     def __init__(self, optimizer, warmup_steps, last_epoch=-1):
@@ -151,13 +152,20 @@ def create_model():
     model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
     return model
 
-def train_model(epochs, loss_function, optimizer):
+def train_model(epochs, loss_function, optimizer, model, embedding):
     warmup_steps = 10
     scheduler = WarmUpLR(optimizer, warmup_steps)
 
     for epoch in range(epochs):
         for input, targets in dataloader:
             optimizer.zero_grad()
+
+            input = embedding.forward(input)
+            padding0 = 224 - input.size(0)
+            padding1 = 224 - input.size(1)
+
+            if padding0 > 0 and padding1 > 0:
+                input = F.pad(input, (padding0, padding1), "constant", 0)
 
             outputs = model(input)
 
@@ -173,12 +181,14 @@ def train_model(epochs, loss_function, optimizer):
             print(f"LR: {scheduler.get_lr()[0]}")
 
             print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')
+    return
 
-image_tensor_example, target_tensor_example = EmbeddedTraining()
+
+embedding = EmbeddedTraining()
 
 #image_tensor_example, target_tensor_example = create_random_input_data()
 
-training_data_set = WellDataSet(image_tensor_example, target_tensor_example)
+training_data_set = 0
 dataloader = DataLoader(training_data_set, batch_size=32, shuffle=True)
 
 model = create_model()
@@ -191,5 +201,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = model.to(device)
 
-train_model(20, loss_function, optimizer)
+train_model(20, loss_function, optimizer, model, embedding)
 
+(embedding, model)
+
+embedding.save()
+model.save()

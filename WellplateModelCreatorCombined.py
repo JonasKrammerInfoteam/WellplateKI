@@ -35,30 +35,8 @@ class EmbeddingMod(nn.Module):
 
 def EmbeddedTraining():
 
-    # Example RGB data (e.g., 100 samples, each with 3 RGB values)
-    # Shape: [batch_size, channels, height, width]
-    rgb_values = torch.randint(0, 256, (100, 3, 640, 480), dtype=torch.float32)  # Random RGB values between 0 and 255
-
     # Normalize the RGB values to the range [0, 1]
-    normalized_rgb_values = rgb_values / 255.0  # Divide by 255 to normalize
 
-    # Example target data (e.g., 100 target values)
-
-
-    # Flatten input to shape [100, 30] (3 channels * 1 height * 10 width)
-    input_train = normalized_rgb_values#.view(100, -1)  # Flatten RGB data
-
-    output_train = input_train
-
-    from torch.utils.data import DataLoader, TensorDataset
-
-    # Split the data into training and validation (in this case, same for simplicity)
-    input_val = input_train  # Same as training for validation (for simplicity)
-    output_val = output_train  # Same as training for validation (for simplicity)
-
-    # Create TensorDataset and DataLoader for training and validation
-    train_data = TensorDataset(input_train, output_train)
-    val_data = TensorDataset(input_val, output_val)
 
     dataloader = datas.load_trainingsdata(".", 42, 64)
 
@@ -79,7 +57,9 @@ def EmbeddedTraining():
         for i in range(0, batches):
             optimizer.zero_grad()  # Zero the gradients
             targets, inputs = dataloader.next_batch()[1]
-            
+            #targets.div_(256)
+            inputs.div_(256)
+
             # Explicitly calling model.forward
             outputs = embedding.forward(inputs)  # Forward pass using model.forward()
             

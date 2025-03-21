@@ -39,7 +39,9 @@ def image_to_tensor(image, normalize=True):
     # Apply any additional transformations
     if transform_list:
         tensor = transform(tensor)
-    
+
+    tensor.transpose(1, 2)
+    #print(tensor.size())
     return tensor
 
 

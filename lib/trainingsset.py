@@ -93,7 +93,7 @@ class TrainingDataset:
             self.__current_validation_batch += 1
             if self.__current_validation_batch >= self.__batches_per_epoch:
                 self.__current_validation_batch = 0
-        return (self.__current_batch, (targets, inputs))
+        return (self.__current_batch, (torch.stack(targets), torch.stack(inputs)))
 
     def get_batches_per_epoch(self, is_training = True) -> int:
         """Get the count of batches per epoch"""

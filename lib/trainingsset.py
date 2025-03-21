@@ -11,7 +11,7 @@ from PIL import Image
 from torch import Tensor
 
 
-def __ceildiv(a, b):
+def ceildiv(a, b):
     return -(a // -b)
 
 
@@ -57,11 +57,12 @@ class TrainingDataset:
         random.shuffle(self.plates)
         self.__shuffled = True
         self.__total_images = sum([len(images) for _, images in self.plates])
-        self.__batches_per_epoch = __ceildiv(self.__total_images, self.batch_size)
+        print(f"Total images: {self.__total_images}")
+        self.__batches_per_epoch = ceildiv(self.__total_images, self.batch_size)
         self.__current_batch = 0
-        self.__current_validation_batch = __ceildiv((self.__batches_per_epoch * 8), 10)
+        self.__current_validation_batch = ceildiv((self.__batches_per_epoch * 8), 10)
 
-    def next_batch(self, is_training = True) -> Tuple[int, List[Tensor, Tensor]]:
+    def next_batch(self, is_training = True) -> Tuple[int, List[Tuple[Tensor, Tensor]]]:
         """Loads the next batch of data"""
         if not self.__shuffled:
             self.shuffle()

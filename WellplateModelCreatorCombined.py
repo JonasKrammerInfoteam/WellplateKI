@@ -7,6 +7,7 @@ from torchvision import datasets, transforms, models
 from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import _LRScheduler
 import torch.functional as F
+import provide_images as datas
 
 
 #640x480
@@ -59,8 +60,7 @@ def EmbeddedTraining():
     train_data = TensorDataset(input_train, output_train)
     val_data = TensorDataset(input_val, output_val)
 
-    train_loader = DataLoader(train_data, batch_size=100, shuffle=True)
-    val_loader = DataLoader(val_data, batch_size=100)
+    dataloader = datas.load_trainingsdata(".", 42, 64)
 
     # Initialize model, loss function, and optimizer
     embedding = EmbeddingMod()
@@ -68,15 +68,17 @@ def EmbeddedTraining():
     criterion = nn.MSELoss()  # Mean Squared Error loss for regression
     optimizer = optim.Adam(embedding.parameters(), lr=0.001)
 
-    epochs = 10
-
+    epochs = 2
+    batches = dataloader.get_batches_per_epoch()
+    batchesV = dataloader.get_batches_per_epoch(False)
     # Training loop
     for epoch in range(epochs):
         # Training phase
         embedding.train()
         running_loss = 0.0
-        for inputs, targets in train_loader:
+        for i in range(0, batches):
             optimizer.zero_grad()  # Zero the gradients
+            (batches, (targets, inputs)) = dataloader.next_batch()
             
             # Explicitly calling model.forward
             outputs = embedding.forward(inputs)  # Forward pass using model.forward()
@@ -91,13 +93,14 @@ def EmbeddedTraining():
         embedding.eval()
         val_loss = 0.0
         with torch.no_grad():  # No need to track gradients during validation
-            for inputs, targets in val_loader:
+            for i in range(batchesV):
+                (batches, (targets, inputs)) = dataloader.next_batch(False)
                 outputs = embedding.forward(inputs)  # Explicitly calling model.forward
                 loss = criterion(outputs, targets)
                 val_loss += loss.item()
 
         # Print statistics
-        print(f'Epoch [{epoch+1}/{epochs}], Training Loss: {running_loss/len(train_loader):.4f}, Validation Loss: {val_loss/len(val_loader):.4f}')
+        print(f'Epoch [{epoch+1}/{epochs}], Training Loss: {running_loss/batches:.4f}, Validation Loss: {val_loss/batchesV:.4f}')
 
     # At the end of training, print out the entire train_data as tensors
     print("\nTrain Data (Tensors):")
@@ -152,12 +155,16 @@ def create_model():
     model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
     return model
 
-def train_model(epochs, loss_function, optimizer, model, embedding):
+def train_model(epochs, loss_function, optimizer, model, embedding, dataloader):
     warmup_steps = 10
     scheduler = WarmUpLR(optimizer, warmup_steps)
+    batches = dataloader.get_batches_per_epoch()
+    batchesV = dataloader.get_batches_per_epoch(False)
 
     for epoch in range(epochs):
-        for input, targets in dataloader:
+
+        for i in range(0, batches):
+            (batches, (targets, input)) = dataloader.next_batch()
             optimizer.zero_grad()
 
             input = embedding.forward(input)
@@ -181,6 +188,16 @@ def train_model(epochs, loss_function, optimizer, model, embedding):
             print(f"LR: {scheduler.get_lr()[0]}")
 
             print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')
+    
+        embedding.eval()
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():  # No need to track gradients during validation
+            for i in range(batchesV):
+                (batches, (targets, inputs)) = dataloader.next_batch(False)
+                outputs = embedding.forward(inputs)  # Explicitly calling model.forward
+                loss = loss_function(outputs, targets)
+                val_loss += loss.item()
     return
 
 
@@ -188,8 +205,8 @@ embedding = EmbeddedTraining()
 
 #image_tensor_example, target_tensor_example = create_random_input_data()
 
-training_data_set = 0
-dataloader = DataLoader(training_data_set, batch_size=32, shuffle=True)
+dataloader = datas.load_trainingsdata(".", 42, 256)
+
 
 model = create_model()
 
@@ -201,7 +218,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = model.to(device)
 
-train_model(20, loss_function, optimizer, model, embedding)
+train_model(50, loss_function, optimizer, model, embedding, dataloader)
 
 (embedding, model)
 

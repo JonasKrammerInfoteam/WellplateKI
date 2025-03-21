@@ -7,12 +7,13 @@ from torch.utils.data import Dataset, DataLoader
 
 
 # Set the size of the image (channels, height, width)
+batch_size = 32
 channels = 3  # RGB channels
 height = 224    # height of the image
 width = 224     # width of the image
 
 # Generate a random tensor with values between 0 and 1, simulating an image
-image_tensor_example = torch.rand((channels, height, width))
+image_tensor_example = torch.rand((batch_size, channels, height, width))
 
 #Target Tensor Example
 
@@ -24,7 +25,7 @@ height = 96    # height of the image
      # width of the image
 
 # Generate a random tensor with values between 0 and 1, simulating an image
-target_tensor_example = torch.rand((height))
+target_tensor_example = torch.rand((batch_size, height))
 
 
 
@@ -75,4 +76,4 @@ for epoch in range(epochs):
 
         optimizer.step()
 
-print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')
+        print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')

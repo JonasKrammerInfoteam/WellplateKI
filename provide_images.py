@@ -1,6 +1,7 @@
 #!/usr/env/bin python3
 import lib
 import os
+from time import time
 
 import lib.file_utils
 import lib.images
@@ -20,24 +21,34 @@ def load_trainingsdata(
     
     # Find PNG files and metadata.json files
     print("Searching for files ...")
+    t0 = time()
     found_files = lib.file_utils.find_metadata_and_images(root_directory)
-    print("Finished searching for files")
+    t1 = time()
+    print(f"Finished searching for files in {t1 - t0} seconds")
     
     # Put files into dataset
-    print("Parsing image metadata. This may take a while ...")
+    print("Gathering image metadata. This may take a while ...")
+    t0 = time()
     dataset = lib.trainingsset.TrainingDataset(seed=seed, batch_size=batch_size)
     for metadata, images in found_files.items():
         plate_id = dataset.add_plate(lib.metadata.WellPlate.from_file(metadata))
         for image in images:
             dataset.add_image(plate_id, lib.images.ImageMetadata.from_file(image))
-    print("Finished parsing metadata")
+    t1 = time()
+    print(f"Finished gathering metadata in {t1 - t0} seconds")
     
     # save dataset
-    dataset.save_to_file("dataset.json")
+    #dataset.save_to_file("dataset.json")
+
+    print("Shuffling the data ...")
+    t0 = time()
+    dataset.shuffle()
+    t1 = time()
+    print(f"Finished shuffling data in {t1 - t0} seconds")
     return dataset
 
 
 if __name__ == "__main__":
     # Directory to search (change this to your target directory)
     root_directory = input("Enter the root directory to search: ")
-    load_trainingsdata(root_directory)
+    dataloader = load_trainingsdata(root_directory)

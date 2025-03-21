@@ -3,6 +3,19 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms, models
 from torch.utils.data import Dataset, DataLoader
+from torch.optim.lr_scheduler import _LRScheduler
+
+class WarmUpLR(_LRScheduler):
+    def __init__(self, optimizer, warmup_steps, last_epoch=-1):
+        self.warmup_steps = warmup_steps
+        super(WarmUpLR, self).__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        step = self.last_epoch
+        if step < self.warmup_steps:
+            warmup_factor = (step + 1) / self.warmup_steps
+            return [base_lr * warmup_factor for base_lr in self.base_lrs]
+        return self.base_lrs
 
 class WellDataSet(Dataset):
     def __init__(self, inputs, targets):
@@ -37,7 +50,10 @@ def create_model():
     model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
     return model
 
-def train_model(epochs):
+def train_model(epochs, loss_function, optimizer):
+    warmup_steps = 10
+    scheduler = WarmUpLR(optimizer, warmup_steps)
+
     for epoch in range(epochs):
         for input, targets in dataloader:
             optimizer.zero_grad()
@@ -49,6 +65,11 @@ def train_model(epochs):
             loss.backward()
 
             optimizer.step()
+
+            scheduler.step()
+
+           
+            print(f"LR: {scheduler.get_lr()[0]}")
 
             print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')
 
@@ -68,5 +89,5 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = model.to(device)
 
-train_model(epochs=20)
+train_model(20, loss_function, optimizer)
 

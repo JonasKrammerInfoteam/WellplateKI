@@ -78,7 +78,7 @@ def EmbeddedTraining():
         running_loss = 0.0
         for i in range(0, batches):
             optimizer.zero_grad()  # Zero the gradients
-            (batches, (targets, inputs)) = dataloader.next_batch()
+            targets, inputs = dataloader.next_batch()[1]
             
             # Explicitly calling model.forward
             outputs = embedding.forward(inputs)  # Forward pass using model.forward()
@@ -94,7 +94,7 @@ def EmbeddedTraining():
         val_loss = 0.0
         with torch.no_grad():  # No need to track gradients during validation
             for i in range(batchesV):
-                (batches, (targets, inputs)) = dataloader.next_batch(False)
+                targets, inputs = dataloader.next_batch(False)[1]
                 outputs = embedding.forward(inputs)  # Explicitly calling model.forward
                 loss = criterion(outputs, targets)
                 val_loss += loss.item()

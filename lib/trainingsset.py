@@ -62,11 +62,10 @@ class TrainingDataset:
         self.__current_batch = 0
         self.__current_validation_batch = ceildiv((self.__batches_per_epoch * 8), 10)
 
-    def next_batch(self, is_training = True) -> Tuple[int, List[Tuple[Tensor, Tensor]]]:
+    def next_batch(self, is_training = True) -> Tuple[int, Tuple[List[Tensor], List[Tensor]]]:
         """Loads the next batch of data"""
         if not self.__shuffled:
             self.shuffle()
-        result = []
         if is_training:
             primary_idx = self.__current_batch * self.batch_size
             secondary_idx = primary_idx // len(self.plates)
@@ -77,22 +76,24 @@ class TrainingDataset:
             primary_idx %= len(self.plates)
             pass
 
+        targets = []
+        inputs = []
         for i in range(self.batch_size):
-            img_path = self.plates[primary_idx + i][1][secondary_idx]
+            img_path = self.plates[primary_idx + i][1][secondary_idx].path
             img = open_and_normalize_image(img_path, 640, 480)
-            tensor = image_to_tensor(img, False)
-            result.append((metadata_to_tensor(self.plates[primary_idx + i][0]), tensor))
+            inputs.append(image_to_tensor(img, False))
+            targets.append(metadata_to_tensor(self.plates[primary_idx + i][0]))
 
         if is_training:
             self.__current_batch += 1
-            if self.__current_batch >= self.get_batches_per_epoch * 0.8:
+            if self.__current_batch >= self.__batches_per_epoch * 0.8:
                 self.__current_batch = 0
                 self.shuffle()
         else:
             self.__current_validation_batch += 1
             if self.__current_validation_batch >= self.__batches_per_epoch:
                 self.__current_validation_batch = 0
-        return (self.__current_batch, result)
+        return (self.__current_batch, (targets, inputs))
 
     def get_batches_per_epoch(self, is_training = True) -> int:
         """Get the count of batches per epoch"""

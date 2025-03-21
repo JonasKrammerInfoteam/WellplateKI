@@ -1,4 +1,5 @@
 import torch
+import torchvision
 import torchvision.models as models
 import torch.nn as nn
 import torch.optim as optim
@@ -6,21 +7,29 @@ from torchvision import datasets, transforms, models
 from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import _LRScheduler
 
-# Load pre-trained MobileNetV3
-#model = models.mobilenet_v3_large(pretrained=True)
 
-# Set the model to evaluation mode (important when saving)
-#model.eval()
+#640x480
+class Embedding(nn.Module):
+        def __init__(self):
+            super(Embedding, self).__init__()
+            self.Conv = torch.nn.Conv2d(3, 3, 3, 3, 1)
+            self.relu = nn.ReLU()
+    
+        def forward(self, x):
+            x = self.Conv.forward(x)
+            x = self.relu.forward(x)
+            return x
 
-
-# Define a simple model with a single linear layer
-class SimpleLinearModel(nn.Module):
-    def __init__(self):
-        super(SimpleLinearModel, self).__init__()
-        self.fc = nn.Linear(30, 1)  # 30 input features, (flattened RGB), 1 output
-
-    def forward(self, x):
-        return self.fc(x)
+class EmbeddingMod(nn.Module):
+        def __init__(self):
+            super(EmbeddingMod, self).__init__()
+            self.embed = Embedding()
+            self.Expand = torch.nn.ConvTranspose2d(3, 3, 3, 3, 0)
+    
+        def forward(self, x):
+            x = self.embed.forward(x)
+            x = self.Expand.forward(x)
+            return x
 
 def EmbeddedTraining():
 
@@ -53,22 +62,23 @@ def EmbeddedTraining():
     val_loader = DataLoader(val_data, batch_size=100)
 
     # Initialize model, loss function, and optimizer
-    model = SimpleLinearModel()
+    embedding = EmbeddingMod()
+    print(embedding.forward(torch.rand(3, 640, 480)).size())
     criterion = nn.MSELoss()  # Mean Squared Error loss for regression
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(embedding.parameters(), lr=0.001)
 
     epochs = 100
 
     # Training loop
     for epoch in range(epochs):
         # Training phase
-        model.train()
+        embedding.train()
         running_loss = 0.0
         for inputs, targets in train_loader:
             optimizer.zero_grad()  # Zero the gradients
             
             # Explicitly calling model.forward
-            outputs = model.forward(inputs)  # Forward pass using model.forward()
+            outputs = embedding.forward(inputs)  # Forward pass using model.forward()
             
             loss = criterion(outputs, targets)  # Calculate the loss
             loss.backward()  # Backpropagation
@@ -77,11 +87,11 @@ def EmbeddedTraining():
             running_loss += loss.item()
 
         # Validation phase
-        model.eval()
+        embedding.eval()
         val_loss = 0.0
         with torch.no_grad():  # No need to track gradients during validation
             for inputs, targets in val_loader:
-                outputs = model.forward(inputs)  # Explicitly calling model.forward
+                outputs = embedding.forward(inputs)  # Explicitly calling model.forward
                 loss = criterion(outputs, targets)
                 val_loss += loss.item()
 

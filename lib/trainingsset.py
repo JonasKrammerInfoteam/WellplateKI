@@ -31,6 +31,9 @@ class TrainingDataset:
         """Add a well plate to this dataset"""
         if self.__shuffled:
             raise RuntimeError("Cannot add data now!")
+        for i, p in enumerate(self.plates):
+            if plate == p[0]:
+                return i
         self.plates.append((plate, []))
         return len(self.plates) - 1
     
@@ -51,6 +54,7 @@ class TrainingDataset:
 
     def shuffle(self):
         """Shuffles the dataset according to the seed. Breaks the IDs!!!!!"""
+        self.plates = [plate for plate in self.plates if len(plate[1]) > 0]
         random.seed(self.seed)
         for pair in self.plates:
             random.shuffle(pair[1])
@@ -61,11 +65,12 @@ class TrainingDataset:
         self.__batches_per_epoch = ceildiv(self.__total_images, self.batch_size)
         self.__current_batch = 0
         self.__current_validation_batch = ceildiv((self.__batches_per_epoch * 8), 10)
+        self.__min_bucket = min([len(plate[1]) for plate in self.plates])
+        print(f"smallest bucket: {self.__min_bucket}")
+        self.__max_bucket = max([len(plate[1]) for plate in self.plates])
+        print(f"biggest bucket: {self.__max_bucket}")
 
-    def next_batch(self, is_training = True) -> Tuple[int, Tuple[List[Tensor], List[Tensor]]]:
-        """Loads the next batch of data"""
-        if not self.__shuffled:
-            self.shuffle()
+    def calc_index(self, is_training):
         if is_training:
             primary_idx = self.__current_batch * self.batch_size
             secondary_idx = primary_idx // len(self.plates)
@@ -74,25 +79,34 @@ class TrainingDataset:
             primary_idx = self.__current_validation_batch * self.batch_size
             secondary_idx = primary_idx // len(self.plates)
             primary_idx %= len(self.plates)
-            pass
+        return primary_idx, secondary_idx
+
+
+    def next_batch(self, is_training = True) -> Tuple[int, Tuple[List[Tensor], List[Tensor]]]:
+        """Loads the next batch of data"""
+        if not self.__shuffled:
+            self.shuffle()
+        primary_idx, secondary_idx = self.calc_index(is_training)
 
         targets = []
         inputs = []
         for i in range(self.batch_size):
-            img_path = self.plates[primary_idx + i][1][secondary_idx].path
+            img_path = self.plates[(primary_idx + i) % len(self.plates)][1][secondary_idx].path
             img = open_and_normalize_image(img_path, 640, 480)
             inputs.append(image_to_tensor(img, False))
-            targets.append(metadata_to_tensor(self.plates[primary_idx + i][0]))
+            targets.append(metadata_to_tensor(self.plates[(primary_idx + i) % len(self.plates)][0]))
 
+        primary_idx, secondary_idx = self.calc_index(is_training)
         if is_training:
             self.__current_batch += 1
-            if self.__current_batch >= self.__batches_per_epoch * 0.8:
+            if self.__current_batch >= self.__batches_per_epoch * 0.8 or secondary_idx >= self.__min_bucket:
                 self.__current_batch = 0
                 self.shuffle()
         else:
             self.__current_validation_batch += 1
-            if self.__current_validation_batch >= self.__batches_per_epoch:
+            if self.__current_validation_batch >= self.__batches_per_epoch or secondary_idx >= self.__min_bucket:
                 self.__current_validation_batch = 0
+                self.shuffle()
         return (self.__current_batch, (torch.stack(targets), torch.stack(inputs)))
 
     def get_batches_per_epoch(self, is_training = True) -> int:

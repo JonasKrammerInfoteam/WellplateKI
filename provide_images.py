@@ -52,3 +52,9 @@ if __name__ == "__main__":
     # Directory to search (change this to your target directory)
     root_directory = input("Enter the root directory to search: ")
     dataloader = load_trainingsdata(root_directory)
+
+    epoch_size = dataloader.get_batches_per_epoch()
+    print(f"Epoch size: {epoch_size}")
+    for i in range(epoch_size):
+        next = dataloader.next_batch()
+        print(f"here: {i}; next: {next[0]}")

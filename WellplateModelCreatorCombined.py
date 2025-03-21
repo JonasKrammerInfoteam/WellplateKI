@@ -8,13 +8,15 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import _LRScheduler
 import torch.functional as F
 import provide_images as datas
+import datetime
 
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #640x480
 class Embedding(nn.Module):
         def __init__(self):
             super(Embedding, self).__init__()
-            self.Conv = torch.nn.Conv2d(3, 3, 3, 3, 1)
+            self.Conv = torch.nn.Conv2d(3, 3, 3, 3, 1, device)
             self.relu = nn.ReLU()
     
         def forward(self, x):
@@ -26,12 +28,12 @@ class EmbeddingMod(nn.Module):
         def __init__(self):
             super(EmbeddingMod, self).__init__()
             self.embed = Embedding()
-            self.Expand = torch.nn.ConvTranspose2d(3, 3, 3, 3, 0)
+            self.Expand = torch.nn.ConvTranspose2d(3, 3, 3, 3, 0, device)
     
         def forward(self, x):
             y = self.embed.forward(x)
             y = self.Expand.forward(y)
-            return y[0:x.size(0),0:x.size(1),0:x.size(2)]
+            return y[0:x.size(0),0:x.size(1),0:x.size(2),0:x.size(3)]
 
 def EmbeddedTraining():
 
@@ -42,7 +44,7 @@ def EmbeddedTraining():
 
     # Initialize model, loss function, and optimizer
     embedding = EmbeddingMod()
-    print(embedding.forward(torch.rand(3, 640, 480)).size())
+    #print(embedding.forward(torch.rand(3, 640, 480)).size())
     criterion = nn.MSELoss()  # Mean Squared Error loss for regression
     optimizer = optim.Adam(embedding.parameters(), lr=0.001)
 
@@ -59,9 +61,11 @@ def EmbeddedTraining():
             targets, inputs = dataloader.next_batch()[1]
             #targets.div_(256)
             inputs.div_(256)
+            #print(inputs.size())
 
             # Explicitly calling model.forward
             outputs = embedding.forward(inputs)  # Forward pass using model.forward()
+            #print(outputs.size())
             
             inputs = inputs[0:outputs.size(0),0:outputs.size(1),0:outputs.size(2)]
             loss = criterion.forward(outputs, inputs)  # Calculate the loss
@@ -76,8 +80,8 @@ def EmbeddedTraining():
         with torch.no_grad():  # No need to track gradients during validation
             for i in range(batchesV):
                 targets, inputs = dataloader.next_batch(False)[1]
-                outputs = embedding.forward(inputs)  # Explicitly calling model.forward
-                loss = criterion(outputs, targets)
+                outputs = embedding.forward(inputs.to(device))  # Explicitly calling model.forward
+                loss = criterion(outputs, targets.to(device))
                 val_loss += loss.item()
 
         # Print statistics
@@ -86,9 +90,9 @@ def EmbeddedTraining():
     # At the end of training, print out the entire train_data as tensors
     print("\nTrain Data (Tensors):")
     print("input_train Tensor:")
-    print(input_train)  # Print the input RGB features tensor
+    #print(input_train)  # Print the input RGB features tensor
     print("\noutput_train Tensor:")
-    print(output_train)  # Print the target tensor
+    #print(output_train)  # Print the target tensor
     return embedding.embed
 
 class WarmUpLR(_LRScheduler):
@@ -131,9 +135,9 @@ def create_random_input_data():
     return image_tensor_example, target_tensor_example
 
 def create_model():
-    model = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.IMAGENET1K_V1)
+    model = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.IMAGENET1K_V1.to(device))
     num_classes = 96
-    model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
+    model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes, device)
     return model
 
 def train_model(epochs, loss_function, optimizer, model, embedding, dataloader):
@@ -153,11 +157,11 @@ def train_model(epochs, loss_function, optimizer, model, embedding, dataloader):
             padding1 = 224 - input.size(1)
 
             if padding0 > 0 and padding1 > 0:
-                input = F.pad(input, (padding0, padding1), "constant", 0)
+                input = F.pad(input, (padding0, padding1), "constant", 0).to(device)
 
             outputs = model(input)
 
-            loss = loss_function(outputs.squeeze(), targets.float())
+            loss = loss_function(outputs.squeeze(), targets.to(device).float())
 
             loss.backward()
 
@@ -176,8 +180,8 @@ def train_model(epochs, loss_function, optimizer, model, embedding, dataloader):
         with torch.no_grad():  # No need to track gradients during validation
             for i in range(batchesV):
                 (batches, (targets, inputs)) = dataloader.next_batch(False)
-                outputs = embedding.forward(inputs)  # Explicitly calling model.forward
-                loss = loss_function(outputs, targets)
+                outputs = embedding.forward(inputs.to(device))  # Explicitly calling model.forward
+                loss = loss_function(outputs, targets.to(device))
                 val_loss += loss.item()
     return
 
@@ -195,7 +199,7 @@ model = create_model()
 loss_function = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = model.to(device)
 
@@ -203,5 +207,6 @@ train_model(50, loss_function, optimizer, model, embedding, dataloader)
 
 (embedding, model)
 
-embedding.save()
-model.save()
+now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+embedding.save(f"embedding_{now}.dat")
+model.save(f"model_{now}.dat")

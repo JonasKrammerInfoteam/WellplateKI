@@ -8,8 +8,8 @@ from torch.utils.data import Dataset, DataLoader
 
 # Set the size of the image (channels, height, width)
 channels = 3  # RGB channels
-height = 256    # height of the image
-width = 256     # width of the image
+height = 224    # height of the image
+width = 224     # width of the image
 batch_size = 10
 
 # Generate a random tensor with values between 0 and 1, simulating an image
@@ -17,9 +17,7 @@ image_tensor_example = torch.rand((batch_size, channels, height, width))
 
 #Target Tensor Example
 
-# Print the shape of the tensor and the tensor itself
-print("Tensor shape:", image_tensor_example.shape)
-print("Image tensor:\n", image_tensor_example)
+
 
 # Set the size of the image (channels, height, width)
  # RGB channels
@@ -30,15 +28,19 @@ width = 96     # width of the image
 # Generate a random tensor with values between 0 and 1, simulating an image
 target_tensor_example = torch.rand((batch_size, height, width))
 
-# Print the shape of the tensor and the tensor itself
-print("Tensor shape:", target_tensor_example.shape)
-print("Image tensor:\n", target_tensor_example)
 
 
 class WellDataSet(Dataset):
     def __init__(self, inputs, targets):
         self.inputs = inputs
         self.targets = targets
+
+     
+    def __len__(self):
+        return len(self.inputs)
+    
+    def __getitem__(self, idx):
+        return self.inputs[idx], self.targets[idx]
 
 training_data_set = WellDataSet(image_tensor_example, target_tensor_example)
 
@@ -63,5 +65,16 @@ model = model.to(device)
 
 epochs = 20
 
+for epoch in range(epochs):
+    for input, targets in dataloader:
+        optimizer.zero_grad()
 
+        outputs = model(inputs)
 
+        loss = optimizer(outputs.squeeze(), targets.float())
+
+        loss.backward()
+
+        optimizer.step()
+
+print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')

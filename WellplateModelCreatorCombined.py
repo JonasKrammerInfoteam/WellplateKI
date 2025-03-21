@@ -63,6 +63,7 @@ def EmbeddedTraining():
             # Explicitly calling model.forward
             outputs = embedding.forward(inputs)  # Forward pass using model.forward()
             
+            inputs = inputs[0:outputs.size(0),0:outputs.size(1),0:outputs.size(2)]
             loss = criterion.forward(outputs, inputs)  # Calculate the loss
             loss.backward()  # Backpropagation
             optimizer.step()  # Update weights

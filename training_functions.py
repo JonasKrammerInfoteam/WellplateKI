@@ -10,10 +10,9 @@ from torch.utils.data import Dataset, DataLoader
 channels = 3  # RGB channels
 height = 224    # height of the image
 width = 224     # width of the image
-batch_size = 10
 
 # Generate a random tensor with values between 0 and 1, simulating an image
-image_tensor_example = torch.rand((batch_size, channels, height, width))
+image_tensor_example = torch.rand((channels, height, width))
 
 #Target Tensor Example
 
@@ -21,12 +20,11 @@ image_tensor_example = torch.rand((batch_size, channels, height, width))
 
 # Set the size of the image (channels, height, width)
  # RGB channels
-batch_size = 10 
-height = 1    # height of the image
-width = 96     # width of the image
+height = 96    # height of the image
+     # width of the image
 
 # Generate a random tensor with values between 0 and 1, simulating an image
-target_tensor_example = torch.rand((batch_size, height, width))
+target_tensor_example = torch.rand((height))
 
 
 
@@ -53,7 +51,7 @@ model = models.mobilenet_v3_large(pretrained=True)
 
 num_classes = 96
 
-model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
 
 loss_function = nn.CrossEntropyLoss()
 
@@ -69,9 +67,9 @@ for epoch in range(epochs):
     for input, targets in dataloader:
         optimizer.zero_grad()
 
-        outputs = model(inputs)
+        outputs = model(input)
 
-        loss = optimizer(outputs.squeeze(), targets.float())
+        loss = loss_function(outputs.squeeze(), targets.float())
 
         loss.backward()
 

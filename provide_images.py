@@ -2,6 +2,7 @@
 import lib
 import os
 from time import time
+import cProfile
 
 import lib.file_utils
 import lib.images
@@ -48,7 +49,7 @@ def load_trainingsdata(
     return dataset
 
 
-if __name__ == "__main__":
+def main():
     # Directory to search (change this to your target directory)
     root_directory = input("Enter the root directory to search: ")
     dataloader = load_trainingsdata(root_directory)
@@ -64,3 +65,7 @@ if __name__ == "__main__":
     for i in range(epoch_size + 10):
         next = dataloader.next_batch(False)
         print(f"here: {i}; next: {next[0]}")
+
+
+if __name__ == "__main__":
+    cProfile.run("main()", "stat_output")

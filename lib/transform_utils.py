@@ -3,6 +3,17 @@ from PIL import Image
 import torchvision.transforms as transforms
 from torchvision.transforms import functional as F
 from lib.metadata import WellPlate
+import cv2
+
+
+def image_to_tensor(image, normalize=True):
+    img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    img_transposed = img_rgb.transpose(2, 0, 1)
+    tensor = torch.from_numpy(img_transposed).contiguous()
+    if normalize:
+        tensor = tensor.float() / 255.0
+    return tensor
+
 
 def image_to_tensor(image, normalize=True):
     """

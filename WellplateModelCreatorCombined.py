@@ -11,6 +11,7 @@ import datetime
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Is using cuda: {torch.cuda.is_available()}")
 
 
 #640x480
@@ -69,8 +70,8 @@ def EmbeddedTraining():
             outputs = embedding.forward(inputs.to(device))  # Forward pass using model.forward()
             #print(outputs.size())
             
-            inputs = inputs[0:outputs.size(0),0:outputs.size(1),0:outputs.size(2)]
-            loss = criterion.forward(outputs, inputs)  # Calculate the loss
+            #inputs = inputs[0:outputs.size(0),0:outputs.size(1),0:outputs.size(2)]
+            loss = criterion.forward(outputs.to(device), inputs.to(device))  # Calculate the loss
             loss.backward()  # Backpropagation
             optimizer.step()  # Update weights
             
@@ -140,7 +141,7 @@ def create_random_input_data():
 
 
 def create_model():
-    model = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.IMAGENET1K_V1.to(device))
+    model = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.IMAGENET1K_V1).to(device)
     num_classes = 96
     model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes, device)
     return model

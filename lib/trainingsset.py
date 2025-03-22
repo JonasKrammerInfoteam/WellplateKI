@@ -62,13 +62,17 @@ class TrainingDataset:
         self.__shuffled = True
         self.__total_images = sum([len(images) for _, images in self.plates])
         print(f"Total images: {self.__total_images}")
-        self.__batches_per_epoch = ceildiv(self.__total_images, self.batch_size)
-        self.__current_batch = 0
-        self.__current_validation_batch = ceildiv((self.__batches_per_epoch * 8), 10)
         self.__min_bucket = min([len(plate[1]) for plate in self.plates])
         print(f"smallest bucket: {self.__min_bucket}")
         self.__max_bucket = max([len(plate[1]) for plate in self.plates])
         print(f"biggest bucket: {self.__max_bucket}")
+        self.__batches_per_epoch = ceildiv((self.__min_bucket * len(self.plates) * 8) // 10, self.batch_size)
+        self.__current_batch = 0
+        self.__current_validation_batch = ceildiv((self.__batches_per_epoch * 8), 10)
+        self.__transit_per_batch = ceildiv(self.batch_size, len(self.plates))
+        print(f"Batch size: {self.batch_size}")
+        print(f"Bucket count: {len(self.plates)}")
+        print(f"transit through buckets per batch: {self.__transit_per_batch}")
 
     def calc_index(self, is_training):
         if is_training:
@@ -81,7 +85,6 @@ class TrainingDataset:
             primary_idx %= len(self.plates)
         return primary_idx, secondary_idx
 
-
     def next_batch(self, is_training = True) -> Tuple[int, Tuple[List[Tensor], List[Tensor]]]:
         """Loads the next batch of data"""
         if not self.__shuffled:
@@ -90,30 +93,36 @@ class TrainingDataset:
 
         targets = []
         inputs = []
+        j = 0
         for i in range(self.batch_size):
-            img_path = self.plates[(primary_idx + i) % len(self.plates)][1][secondary_idx].path
+            img_path = self.plates[(primary_idx + i) % len(self.plates)][1][secondary_idx + j].path
             img = open_and_normalize_image(img_path, 640, 480)
             inputs.append(image_to_tensor(img, False))
             targets.append(metadata_to_tensor(self.plates[(primary_idx + i) % len(self.plates)][0]))
+            j = (primary_idx + i) // len(self.plates)
 
-        primary_idx, secondary_idx = self.calc_index(is_training)
         if is_training:
             self.__current_batch += 1
-            if self.__current_batch >= self.__batches_per_epoch * 0.8 or secondary_idx >= self.__min_bucket:
+            primary_idx, secondary_idx = self.calc_index(is_training)
+            if self.__current_batch >= self.__batches_per_epoch * 0.8 or secondary_idx + self.__transit_per_batch >= (self.__min_bucket * 8) // 10 - 1:
                 self.__current_batch = 0
                 self.shuffle()
         else:
             self.__current_validation_batch += 1
-            if self.__current_validation_batch >= self.__batches_per_epoch or secondary_idx >= self.__min_bucket:
-                self.__current_validation_batch = 0
+            primary_idx, secondary_idx = self.calc_index(is_training)
+            if self.__current_validation_batch >= self.__batches_per_epoch or secondary_idx + self.__transit_per_batch >= self.__min_bucket - 1:
+                self.__current_validation_batch = ceildiv((self.__batches_per_epoch * 8), 10)
                 self.shuffle()
-        return (self.__current_batch, (torch.stack(targets), torch.stack(inputs)))
+        return (self.__current_batch if is_training else self.__current_validation_batch, (torch.stack(targets), torch.stack(inputs)))
 
     def get_batches_per_epoch(self, is_training = True) -> int:
         """Get the count of batches per epoch"""
         if not self.__shuffled:
             self.shuffle()
-        return (self.__batches_per_epoch * (8 if is_training else 2)) // 10
+        train = ceildiv(self.__batches_per_epoch * 8, 10)
+        if is_training:
+            return train - 1 # subtract as we have one incomplete bucket?
+        return self.__batches_per_epoch - train - 1 # subtract as we have one incomplete bucket?
 
     def to_json(self):
         """Convert the dataset to a JSON representation"""

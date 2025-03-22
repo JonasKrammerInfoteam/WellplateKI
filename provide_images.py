@@ -55,6 +55,12 @@ if __name__ == "__main__":
 
     epoch_size = dataloader.get_batches_per_epoch()
     print(f"Epoch size: {epoch_size}")
-    for i in range(epoch_size):
+    for i in range(epoch_size + 10):
         next = dataloader.next_batch()
+        print(f"here: {i}; next: {next[0]}")
+
+    epoch_size = dataloader.get_batches_per_epoch(False)
+    print(f"Epoch size: {epoch_size}")
+    for i in range(epoch_size + 10):
+        next = dataloader.next_batch(False)
         print(f"here: {i}; next: {next[0]}")

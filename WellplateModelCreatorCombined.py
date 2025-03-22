@@ -159,12 +159,13 @@ def train_model(epochs, loss_function, optimizer, model, embedding, dataloader):
             (batches, (targets, input)) = dataloader.next_batch()
             optimizer.zero_grad()
 
-            input = embedding.forward(input)
+            input = embedding.forward(input.to(device))
             padding0 = 224 - input.size(0)
             padding1 = 224 - input.size(1)
 
             if padding0 > 0 and padding1 > 0:
-                input = F.pad(input, (padding0, padding1), "constant", 0).to(device)
+                input = F.pad(input, (padding0, padding1), "constant", 0)
+            input = input.to(device)
 
             outputs = model(input)
 

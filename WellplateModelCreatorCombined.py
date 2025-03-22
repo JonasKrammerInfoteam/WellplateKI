@@ -1,5 +1,4 @@
 import torch
-import torchvision
 import torchvision.models as models
 import torch.nn as nn
 import torch.optim as optim
@@ -12,33 +11,36 @@ import datetime
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 #640x480
 class Embedding(nn.Module):
-        def __init__(self):
-            super(Embedding, self).__init__()
-            self.Conv = torch.nn.Conv2d(3, 3, 3, 3, 1, device)
-            self.relu = nn.ReLU()
-    
-        def forward(self, x):
-            x = self.Conv.forward(x)
-            x = self.relu.forward(x)
-            return x
+    def __init__(self):
+        super(Embedding, self).__init__()
+        self.Conv = torch.nn.Conv2d(3, 3, 3, 3, 1).to(device)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.Conv.forward(x)
+        x = self.relu.forward(x)
+        return x
+
 
 class EmbeddingMod(nn.Module):
-        def __init__(self):
-            super(EmbeddingMod, self).__init__()
-            self.embed = Embedding()
-            self.Expand = torch.nn.ConvTranspose2d(3, 3, 3, 3, 0, device)
-    
-        def forward(self, x):
-            y = self.embed.forward(x)
-            y = self.Expand.forward(y)
-            return y[0:x.size(0),0:x.size(1),0:x.size(2),0:x.size(3)]
+    def __init__(self):
+        super(EmbeddingMod, self).__init__()
+        self.embed = Embedding()
+        self.Expand = torch.nn.ConvTranspose2d(3, 3, 3, 3, 0).to(device)
+
+    def forward(self, x):
+        y = self.embed.forward(x)
+        y = self.Expand.forward(y)
+        return y[0:x.size(0),0:x.size(1),0:x.size(2),0:x.size(3)]
+
 
 def EmbeddedTraining():
-
     # Normalize the RGB values to the range [0, 1]
-
+    # todo: needed?
 
     dataloader = datas.load_trainingsdata(".", 42, 64)
 
@@ -64,7 +66,7 @@ def EmbeddedTraining():
             #print(inputs.size())
 
             # Explicitly calling model.forward
-            outputs = embedding.forward(inputs)  # Forward pass using model.forward()
+            outputs = embedding.forward(inputs.to(device))  # Forward pass using model.forward()
             #print(outputs.size())
             
             inputs = inputs[0:outputs.size(0),0:outputs.size(1),0:outputs.size(2)]
@@ -79,9 +81,9 @@ def EmbeddedTraining():
         val_loss = 0.0
         with torch.no_grad():  # No need to track gradients during validation
             for i in range(batchesV):
-                targets, inputs = dataloader.next_batch(False)[1]
+                _, inputs = dataloader.next_batch(False)[1]
                 outputs = embedding.forward(inputs.to(device))  # Explicitly calling model.forward
-                loss = criterion(outputs, targets.to(device))
+                loss = criterion(outputs, inputs.to(device))
                 val_loss += loss.item()
 
         # Print statistics
@@ -95,6 +97,7 @@ def EmbeddedTraining():
     #print(output_train)  # Print the target tensor
     return embedding.embed
 
+
 class WarmUpLR(_LRScheduler):
     def __init__(self, optimizer, warmup_steps, last_epoch=-1):
         self.warmup_steps = warmup_steps
@@ -107,17 +110,18 @@ class WarmUpLR(_LRScheduler):
             return [base_lr * warmup_factor for base_lr in self.base_lrs]
         return self.base_lrs
 
+
 class WellDataSet(Dataset):
     def __init__(self, inputs, targets):
         self.inputs = inputs
         self.targets = targets
-
-     
+ 
     def __len__(self):
         return len(self.inputs)
     
     def __getitem__(self, idx):
         return self.inputs[idx], self.targets[idx]
+
 
 def create_random_input_data():
     batch_size = 32
@@ -134,11 +138,13 @@ def create_random_input_data():
 
     return image_tensor_example, target_tensor_example
 
+
 def create_model():
     model = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.IMAGENET1K_V1.to(device))
     num_classes = 96
     model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes, device)
     return model
+
 
 def train_model(epochs, loss_function, optimizer, model, embedding, dataloader):
     warmup_steps = 10
@@ -192,9 +198,7 @@ embedding = EmbeddedTraining()
 
 dataloader = datas.load_trainingsdata(".", 42, 256)
 
-
 model = create_model()
-
 
 loss_function = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
